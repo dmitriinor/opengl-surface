@@ -24,17 +24,21 @@ if(MINGW)
   target_link_libraries(surface ${CMAKE_SOURCE_DIR}/lib/mingw/libglfw3.a 
                                ${CMAKE_SOURCE_DIR}/lib/mingw/libglew32.a)
 elseif(CMAKE_COMPILER_IS_GNUCXX)
-  target_link_libraries(surface ${CMAKE_SOURCE_DIR}/lib/gcc/libglfw3.a
-                               ${CMAKE_SOURCE_DIR}/lib/gcc/libGLEW.a)
+  if (UNIX AND NOT APPLE)
+    target_link_libraries(surface ${CMAKE_SOURCE_DIR}/lib/gcc/libglfw3.a
+                                 ${CMAKE_SOURCE_DIR}/lib/gcc/libGLEW.a)
+  else()
+    target_link_libraries(surface ${CMAKE_SOURCE_DIR}/lib/macos/libglfw3.a
+	                              ${CMAKE_SOURCE_DIR}/lib/macos/libGLEW.a)
+  endif()
 elseif(MSVC)
   target_link_libraries(surface ${CMAKE_SOURCE_DIR}/lib/msvc/glew32s.lib
                                ${CMAKE_SOURCE_DIR}/lib/msvc/glfw3.lib)
 endif()
 
-if(WIN32)
-  target_link_libraries(surface opengl32)
-elseif(UNIX AND NOT APPLE)
-  target_link_libraries(surface dl GL X11 -pthread)
-else() 
-  target_link_libraries(surface -framework OpenGL)
+find_package(OpenGL REQUIRED)
+target_link_libraries(surface OpenGL::GL)
+
+if(UNIX AND NOT APPLE)
+  target_link_libraries(surface dl X11 -pthread)
 endif()
