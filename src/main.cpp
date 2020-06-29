@@ -5,21 +5,27 @@
 #include <iostream>
 #include <GLEW/glew.h>
 #include <GLFW/glfw3.h>
+#include <lodepng/lodepng.h>
 #include "Mat4x4/mat4x4.hpp"
 
-constexpr int n = 100; // grid size
-constexpr float far = 1000.f; // far plane
-constexpr float near = 0.01f; // near plane
-constexpr float PI = 3.14159F;
-constexpr float FOV_rad = 45.f / 180.f * PI; // 45 degrees
+const int n = 100; // grid size
+const float far = 1000.f; // far plane
+const float near = 0.01f; // near plane
+const float PI = 3.14159F;
+const float FOV_rad = 45.f / 180.f * PI; // 45 degrees
+const std::string png_paths[2] = {".\\data\\cell.png", ".\\data\\dot.png"}; // paths to textures
+const int textures_count = 2;
 float aspect_ratio = 4.f / 3.f; // window aspect ratio
 float scaling_ratio = 1.f; // zoom
+
 
 GLFWwindow *g_window; // window descriptor
 
 GLuint g_shaderProgram; // shader program descriptor
-GLint g_uMVP;
-GLint g_uMV;
+GLint g_uMVP; // Model View Projection descriptor
+GLint g_uMV; // Model View descriptor
+GLuint g_textures[textures_count]; // textures descriptor
+GLuint mapLocs[textures_count]; // textures map location
 
 struct Model {
   GLuint vbo; // vertex buffer object descriptor
@@ -94,11 +100,11 @@ bool createShaderProgram() {
     "#version 330\n"
   // declaring the attributes (vertices data) & assigning the descriptors to them
     "layout(location = 0) in vec2 a_position;" // x and y vector 
-    "layout(location = 1) in vec3 a_color;" // r, g, b vector
+	"layout(location = 1) in vec2 a_texture;" // texture coordinates
+	"out vec3  v_pos, v_normal;"
+	"out vec2 v_texCoord;" 
   // declaring matrix uniforms (MVP, MV, MN)
     "uniform mat4 u_mv, u_mvp;"
-	
-	"out vec3  v_pos, v_normal;"
   // declaring and defining surface function and derivatives
     "float a = 0.8f;"
 	"float b = 0.6f;"
@@ -113,10 +119,11 @@ bool createShaderProgram() {
 	"                     dF_dy(a_position[0], a_position[1]),"
 	"                     dF_dz());"
   // normal transformation
-	"  v_normal = transpose(inverse(mat3(u_mv))) * grad_F;"
+	"  v_normal = normalize(transpose(inverse(mat3(u_mv))) * grad_F);"
 	"  v_pos = (u_mv * vec4(position, 1.f)).xyz;"
   // defining the gl_Position system variable
     "  gl_Position = u_mvp * vec4(position, 1.f);"
+	"  v_texCoord = a_texture;"
     "}";
 
   const GLchar fsh[] =
@@ -124,15 +131,16 @@ bool createShaderProgram() {
   // explicitly declaring rendering target (color buffer) / output variable
 	"layout(location = 0) out vec4 o_color;"
 	"in vec3 v_pos, v_normal;"
-    "uniform mat4 u_mv;"
+	"in vec2 v_texCoord;"
+	"uniform sampler2D u_map1, u_map2;"
     "void main() {"
   // Phong Shading
     "  vec3 normal = - normalize(v_normal);"
-  	"  float d_min = 0.2f;"
-	"  float s_focus = 5.f;"
-	"  vec3 c_light = vec3(245.f, 193.f, 253.f) / 255.f;"
+  	"  float d_min = 0.3f;"
+	"  float s_focus = 4.f;"
+	"  vec3 c_light = vec3(220.f, 220.f, 220.f) / 255.f;"
 	"  vec3 c_base = vec3(53.f, 104.f, 103.f) / 255.f;"
-	"  vec3 L = vec3(10.f, 10.f, 10.f);"
+	"  vec3 L = vec3(10.f, 10.f, 0.f);"
 	"  vec3 E = vec3(0.f, 0.f, 0.f);"
 
 	"  vec3 l = normalize(v_pos - L);"
@@ -142,7 +150,9 @@ bool createShaderProgram() {
 	"  vec3 r = reflect(l, normal);"
 	
 	"  float s = cos_a > 0.f ? max(pow(dot(r,e), s_focus), 0.f) : 0.f;"
-	"  o_color = vec4(c_light * (d * c_base + vec3(s)), 1.f);"
+  // Mix two textures
+    "  vec4 mixed_textures = mix(texture(u_map1, v_texCoord), texture(u_map2, v_texCoord), 0.65);"
+	"  o_color = vec4(c_light * (d * mixed_textures.xyz + vec3(s)), 1.f);"
     "}";
 
   auto vertexShader = createShader(vsh, GL_VERTEX_SHADER);
@@ -161,8 +171,8 @@ bool createShaderProgram() {
 }
 
 bool createModel() {
-  // Vertex array of n^2 elements (5 attributes for each vertex)
-  GLfloat *vertices = new GLfloat[n * n * 5];
+  // Vertex array of n^2 elements (4 attributes for each vertex)
+  GLfloat *vertices = new GLfloat[n * n * 4];
   // Index array
   GLuint *indices = new GLuint[(n - 1) * (n - 1) * 6];
   uint32_t current_v = 0;
@@ -170,9 +180,8 @@ bool createModel() {
     for (int x = 0; x < n; ++x) {
       vertices[current_v++] = (float)x / n - 0.5f;
       vertices[current_v++] = (float)z / n - 0.5f;
-      vertices[current_v++] = 0.f;
-      vertices[current_v++] = 1.f;
-      vertices[current_v++] = 0.f;
+      vertices[current_v++] = (float)x / 10;
+      vertices[current_v++] = (float)z / 10;
     }
   }
   // Going through cells counter-clockwise
@@ -196,7 +205,7 @@ bool createModel() {
   // Activates VBO
   glBindBuffer(GL_ARRAY_BUFFER, g_model.vbo);
   // Copying vbo data to active vertex buffer
-  glBufferData(GL_ARRAY_BUFFER, n * n * 5 * sizeof(GLfloat), vertices,
+  glBufferData(GL_ARRAY_BUFFER, n * n * 4 * sizeof(GLfloat), vertices,
                GL_STATIC_DRAW);
   delete[] vertices;
   // Generates 1 Index Buffer Object and stores it in Model object's ibo field
@@ -211,14 +220,52 @@ bool createModel() {
   g_model.indexCount = (n - 1) * (n - 1) * 6;
   // Allows using data buffer for attribute 0 (a_vertex)
   glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat),
-                        (const GLvoid *)0);
- // Allows using data buffer for attribute 1 (a_color)
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (const GLvoid *)0);
+  // Allows using data buffer for attribute 1 (a_texture)
   glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat),
-                        (const GLvoid *)(2 * sizeof(GLfloat)));
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (const GLvoid *)(2 * sizeof(GLfloat)));
 
   return g_model.vbo != 0 && g_model.ibo != 0 && g_model.vao != 0;
+}
+
+bool createTextures(const std::string *filenames) {
+  // Creates texture object
+  glGenTextures(textures_count, g_textures);
+  std::vector<unsigned char> png;
+  std::vector<unsigned char> image;
+  GLuint texW, texH;
+  for (int i = 0; i < textures_count; ++i) {
+    // Activate texture object
+    glBindTexture(GL_TEXTURE_2D, g_textures[i]);
+
+    // Load PNG file from disk to memory first, then decode to raw pixels in memory
+    GLuint error = lodepng::load_file(png, filenames[i]);
+    if (!error) error = lodepng::decode(image, texW, texH, png);
+    if (error) { 
+	  std::cout << "decoder error" << error << ": " << lodepng_error_text(error) << std::endl;
+  	  return 0;
+    }
+    png.clear();
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // Anisotropic filtering
+    if (glewIsSupported("GL_EXT_texture_filter_anisotropic")) {
+	  GLfloat fLargest;
+	  glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &fLargest);
+	  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, fLargest);
+    }
+    // Load texture into VRAM
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texW, texH, 0, GL_RGBA, GL_UNSIGNED_BYTE, image.data());
+    image.clear();
+    // Generate MIP
+    glGenerateMipmap(GL_TEXTURE_2D);
+  }
+  mapLocs[0] = glGetUniformLocation(g_shaderProgram, "u_map1");
+  mapLocs[1] = glGetUniformLocation(g_shaderProgram, "u_map2");
+  return 1;
 }
 
 bool init() {
@@ -228,7 +275,7 @@ bool init() {
 
   glEnable(GL_DEPTH_TEST);
 
-  return createShaderProgram() && createModel();
+  return createShaderProgram() && createModel() && createTextures(png_paths);
 }
   
 void reshape(GLFWwindow *window, int width, int height) {
@@ -263,6 +310,13 @@ void draw(Mat4x4 &T, Vec3 &v) {
   // Sending to the shader
   glUniformMatrix4fv(g_uMV, 1, GL_FALSE, MV.ptr());
   glUniformMatrix4fv(g_uMVP, 1, GL_FALSE, MVP.ptr());
+  
+  // Sending texture to the pipeline
+  for (GLuint i = 0; i < textures_count; ++i) {
+    glActiveTexture(GL_TEXTURE0 + i);
+    glBindTexture(GL_TEXTURE_2D, g_textures[i]);
+    glUniform1i(mapLocs[i], i);
+  }
   // Draw call itself (sending to the pipeline)
   glDrawElements(GL_TRIANGLES, g_model.indexCount, GL_UNSIGNED_INT, NULL);
 }
@@ -331,6 +385,7 @@ void cleanup() {
   if (g_model.vbo != 0) glDeleteBuffers(1, &g_model.vbo);
   if (g_model.ibo != 0) glDeleteBuffers(1, &g_model.ibo);
   if (g_model.vao != 0) glDeleteVertexArrays(1, &g_model.vao);
+  glDeleteTextures(textures_count, g_textures);
 }
 
 
@@ -341,14 +396,14 @@ int main() {
 
   // Initialize OpenGL
   if (!initOpenGL()) return -1;
-  
+
   // Initialize graphical resources.
   bool isIninialised = init();
 
   if (isIninialised) {
-    //glEnable(GL_CULL_FACE);
     // Main loop until window closed or escape pressed.
     while (glfwWindowShouldClose(g_window) == 0) {
+
       // Draw Call.
       draw(T, v);
 
@@ -359,7 +414,7 @@ int main() {
       
     }
   }
-
+  
   // Cleanup graphical resources.
   cleanup();
 

@@ -1,0 +1,8 @@
+# ninja log v5
+9	75	6151508351274525	CMakeFiles/vec3.dir/include/vec3/vec3.cpp.obj	8667ce5be6e08d63
+76	148	6151508351984690	libvec3.a	57ef0c75302d1ca2
+6	375	6151508354226947	CMakeFiles/mat4x4.dir/include/Mat4x4/mat4x4.cpp.obj	5c16e569880f549d
+377	445	6151508354927107	libmat4x4.a	6b57898d37853327
+4	497	6151508355437227	CMakeFiles/surface.dir/src/main.cpp.obj	706621fbe0be994e
+1	894	6151508359408216	CMakeFiles/surface.dir/include/lodepng/lodepng.cpp.obj	7cf37fc01a5e10b7
+894	1557	6151508365442551	surface.exe	4ce0b205bcf02573
