@@ -1,12 +1,18 @@
 # opengl-surface
 Basic matrix transformations + Phong shading through OpenGL
+Using GLEW and GLFW libraries
+
+# Requirements
+GLFW and GLEW binaries are included for Windows, no need to install anything.
+
+For other platforms please install glew 2.1 and glfw 3.3 with your package manager.
 
 # Building
 Create a build directory
 
     mkdir build
 
-then generate building files, you can also specify a generator by `-G "Generator Name"`
+then generate building files, you can also specify a generator (e.g. `-G "Ninja"`)
 
     cmake -S . -B build
 
