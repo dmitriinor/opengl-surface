@@ -13,7 +13,7 @@ add_executable(surface src/main.cpp include/lodepng/lodepng.cpp)
 target_include_directories(surface PUBLIC include)
 
 # add a library target for our mat4x4 library
-add_library(mat4x4 include/Mat4x4/mat4x4.cpp)
+add_library(mat4x4 include/Mat4x4/Mat4x4.cpp)
 target_link_libraries(surface mat4x4)
 
 # add a library target for our vec3 library
@@ -35,7 +35,7 @@ elseif(WIN32 AND MSVC)
     #set(LIBS opengl32)
 else()
     find_package(GLEW REQUIRED)
-	#target_include_directories(${GLEW_INCLUDE_DIRS})
+	 #target_include_directories(${GLEW_INCLUDE_DIRS})
     target_link_libraries(surface GLEW::GLEW)
 
 	find_package(glfw3 3.3 REQUIRED)
@@ -46,5 +46,5 @@ target_link_libraries(surface OpenGL::GL)
 
 # link against other libs
 if (UNIX AND NOT APPLE)
-    target_link_libraries(surface x11 dl -pthread)
+    target_link_libraries(surface X11 dl -pthread)
 endif()
