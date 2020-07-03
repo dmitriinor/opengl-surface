@@ -1,5 +1,5 @@
 #pragma once
-#include "../vec3/vec3.hpp"
+#include "../Vec3/Vec3.hpp"
 #define m_size 4
 
 class Mat4x4

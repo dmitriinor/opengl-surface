@@ -6,7 +6,7 @@
 #include <GLEW/glew.h>
 #include <GLFW/glfw3.h>
 #include <lodepng/lodepng.h>
-#include "Mat4x4/mat4x4.hpp"
+#include "Mat4x4/Mat4x4.hpp"
 
 const int n = 100; // grid size
 const float far = 1000.f; // far plane
