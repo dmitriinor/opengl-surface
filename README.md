@@ -20,7 +20,7 @@ and build.
 
     cmake --build build
 
-# Running
+# Executing
 Your executable is in the `build` directory. 
     
     ./build/surface
